@@ -13,6 +13,8 @@ local wibox = require("wibox")
 local beautiful = require("beautiful")
 -- Notification library
 local naughty = require("naughty")
+-- Vicious library
+vicious = require("vicious")
 
 -- {{{ Error handling
 -- Check if awesome encountered an error during startup and fell back to
@@ -39,15 +41,8 @@ do
 end
 -- }}}
 -- {{{ Autostart applications
--- function run_once(cmd)
---    findme = cmd
---    firstspace = cmd:find(" ")
---    if firstspace then
---       findme = cmd:sub(0, firstspace-1)
---    end
---    awful.util.spawn_with_shell("pgrep -u $SUER -x" .. findme .. " > /dev/null || (" .. cmd ..")")
--- end
 awful.spawn.once("xautoloc -time 20 -locker 'slock'")
+awful.spawn.once("picom")
 -- }}}
 --
 -- {{{ Variable definitions
@@ -86,11 +81,151 @@ awful.layout.layouts = {
 -- {{{ Wibar
 -- Create a textclock widget
 mytextclock = wibox.widget.textclock()
--- Create a cpu temp widget
-mycputemp = awful.widget.watch([[bash -c "sensors | sed -nu -e 's/Package.*+\([0-9]\+\.[0-9].C\).*(.*/\1/p'"]], 15)
--- Create a battery widget
-mybattery = awful.widget.watch([[bash -c "acpi -b | sed -nu -e 's/.*\ \([0-9]\+%\).*/\1/p'"]], 15)
 
+-- Vicious: CPU widget
+mycpu = wibox.widget.textbox()
+mycpu_tip = awful.tooltip({ objects = { mycpu }})
+vicious.register(mycpu, vicious.widgets.cpu, function (widget, args)
+                    template = template or 'Core %d: %d %%'
+                    local txt = {}
+                    for i,v in pairs(args) do
+                       if i > 1 then
+                          txt[#txt + 1] = template:format(i,v)
+                       end
+                    end
+                    mycpu_tip:set_text(table.concat(txt, "\n"))
+                    return "" .. args[1] .. "%"
+                end, 7)
+
+mycpu:buttons (awful.util.table.join (
+        awful.button ({}, 1, function()
+		vicious.force ({ mycpu })
+	end)
+))
+
+-- Vicious: Temp widget
+mytemp = wibox.widget.textbox()
+vicious.register(mytemp, vicious.widgets.hwmontemp, "  $1°C", 9, {"coretemp"})
+
+
+-- Vicious: Mem widget
+mymem = wibox.widget.textbox()
+mymem_tip = awful.tooltip({ objects = { mymem }})
+vicious.register(mymem, vicious.widgets.mem, function (widget, args)
+                    local txt = {}
+                    txt[1] = "Mem: " .. args[2] .. "/" .. args[3] .. " MiB (" .. args[1] .. "%)"
+                    txt[2] = "Swap: " .. args[6] .. "/" .. args[7] .. " MiB (" .. args[5] .. "%)"
+                    mymem_tip:set_text(table.concat(txt, "\n"))
+                    return " "  .. args[1] .. "%"
+                end, 11)
+
+mymem:buttons (awful.util.table.join (
+        awful.button ({}, 1, function()
+		vicious.force ({ mymem }) -- force refresh the widget when using the mouse on it
+	end)
+))
+
+
+-- Vicious: Net widget
+mynet = wibox.widget.textbox()
+vicious.register(mynet, vicious.widgets.net, function (widget, args)
+                    --local txt = {}
+                    --for i,v in pairs(args) do
+                    --   txt[#txt + 1] = i .. ": " .. v
+                    --end
+                    --mynet_tip:set_text(table.concat(txt, "\n"))
+                    local down = args["{wlp2s0 down_kb}"] or args["{eno1 down_kb}"]
+                    local up = args["{wlp2s0 up_kb}"] or args["{eno1 up_kb}"]
+                    return down .. "  " .. up .. ""
+                end, 13)
+
+--mycpu:buttons (awful.util.table.join (
+--        awful.button ({}, 1, function()
+--		vicious.force ({ mycpu }) -- force refresh the widget when using the mouse on it
+--	end)
+--))
+
+
+-- Vicious: Battery widget
+mybattery = wibox.widget.textbox()
+battwidget_tip = awful.tooltip({ objects = { mybattery }})
+vicious.register(mybattery, vicious.widgets.bat, function (widget, args)
+                    if args[1] == "+" then
+                       txt = ""
+                    else
+                       txt = ""
+                    end
+                    
+                    battwidget_tip:set_text( args[1] .. " " ..  args[3] )
+                    if args[2] < 5 then
+                       return txt .. " "
+                    elseif args[2] < 25 then
+                       return txt .. " "
+                    elseif args[2] < 50 then
+                       return txt .. " "
+                    elseif args[2] < 75 then
+                       return txt .. " "
+                    else
+                       return txt .. " "-- txt .. args[2]
+                    end
+ 
+                end, 39, 'BAT0')
+
+mybattery:buttons (awful.util.table.join (
+        awful.button ({}, 1, function()
+		vicious.force ({ mybattery }) -- force refresh the widget when using the mouse on it
+	end)
+))
+
+---- Ethernet connection widget
+--local widget_separator= " | "
+--
+--eth_icon = widget_separator.." Eth: "
+--
+--function check_eth()
+-- local eth_file = io.open("/sys/class/net/eno1/operstate", "r")
+-- local eth_state = eth_file:read()
+-- eth_file:close()
+-- return eth_state
+--end
+--
+--eth_widget = wibox.widget.textbox()
+--
+--function eth_status()
+--    if (check_eth() == "up") then
+--        eth_widget:set_markup(eth_icon.."on ")
+--    else
+--        eth_widget:set_markup(eth_icon.."off ")
+--    end
+--end
+--eth_status()
+--
+--eth_timer = timer({timeout=60})
+--eth_timer:connect_signal("timeout",eth_status)
+--eth_timer:start()
+
+
+function check_wls()
+ local wls_file = io.open("/sys/class/net/wlp2s0/operstate", "r")
+ local wls_state = wls_file:read()
+ wls_file:close()
+ return wls_state
+end
+
+wls_widget = wibox.widget.textbox()
+
+function wls_status()
+    if (check_wls() == "up") then
+        wls_widget:set_markup("  ")
+    else
+        wls_widget:set_markup()
+    end
+end
+wls_status()
+
+wls_timer = timer({timeout=113})
+wls_timer:connect_signal("timeout",wls_status)
+wls_timer:start()
 
 
 -- Create a wibox for each screen and add it
@@ -163,9 +298,6 @@ awful.screen.connect_for_each_screen(function(s)
     -- Each screen has its own tag table.
     awful.tag({ "1", "2", "3", "4", "5"}, s, awful.layout.layouts[1])
 
-    -- Create an imagebox widget which will contain an icon indicating which layout we're using.
-    -- We need one layoutbox per screen.
-    -- s.mylayoutbox = awful.widget.layoutbox(s)
     s.mylayoutbox = wibox.widget.textbox(beautiful["layout_txt_" .. awful.layout.getname(awful.layout.get(s))])
 
     awful.tag.attached_connect_signal(s, "property::selected", function ()
@@ -223,15 +355,21 @@ awful.screen.connect_for_each_screen(function(s)
         s.mytasklist, -- Middle widget
         { -- Right widgets
             layout = wibox.layout.fixed.horizontal,
-            --mykeyboardlayout,
             wibox.widget.systray(),
+            wibox.widget.textbox(' | '),
+            mycpu,
+            mytemp,
+            wibox.widget.textbox(' | '),
+            mymem,
+            wibox.widget.textbox(' | '),
+            mynet,
+            wls_widget,
             wibox.widget.textbox(' | '),
             mybattery,
             wibox.widget.textbox(' | '),
-            mycputemp,
-            wibox.widget.textbox(' | '),
             mytextclock,
             wibox.widget.textbox(' '),
+            wibox.widget.textbox(' | '),
             s.mylayoutbox,
         },
     }
@@ -297,9 +435,14 @@ globalkeys = gears.table.join(
         {description = "go back", group = "client"}),
    awful.key({ modkey,           }, "b", function ()
       for s in screen do
-         s.mywibox.visible = not s.mywibox.visible
+         if s.mywibox.visible then
+            vicious.suspend()
+         else
+            vicious.activate()
          end
-       end),
+         s.mywibox.visible = not s.mywibox.visible
+      end
+    end),
 
     -- Standard program
     awful.key({ modkey,           }, "Return", function () awful.spawn(terminal) end,

@@ -62,9 +62,11 @@ theme.tasklist_floating             = ""
 theme.tasklist_maximized_horizontal = ""
 theme.tasklist_maximized_vertical   = ""
 
-theme.layout_txt_tile = "[["
-theme.layout_txt_tileleft = "]]"
-theme.layout_txt_floating = '][' 
+--theme.layout_txt_tile = " "
+theme.layout_txt_tile = " "
+-- theme.layout_txt_tileleft = " "
+theme.layout_txt_tileleft = " "
+theme.layout_txt_floating = " " 
 
 
 return theme
