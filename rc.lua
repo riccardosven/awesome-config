@@ -47,8 +47,9 @@ beautiful.init(gears.filesystem.get_configuration_dir() .. "theme.lua")
 terminal = os.getenv("TERM") or "alacritty"
 editor = os.getenv("EDITOR") or "nano"
 editor_cmd = terminal .. " -e " .. editor
-wifi_interface = "wlp2s0"
+wifi_interface = "wlp3s0"
 eth_interface = "eno1"
+battery_name = "BAT0"
 
 -- Default modkey.
 modkey = "Mod4"
@@ -74,6 +75,9 @@ awful.layout.layouts = {
 }
 -- }}}
 -- {{{ Wibar
+-- Widget separator
+myseparator = wibox.widget.textbox(" | ")
+
 -- Create a textclock widget
 mytextclock = wibox.widget.textclock()
 
@@ -100,7 +104,7 @@ mycpu:buttons (awful.util.table.join (
 
 -- Vicious: Temp widget
 mytemp = wibox.widget.textbox()
-vicious.register(mytemp, vicious.widgets.hwmontemp, "  $1°C", 9, {"coretemp"})
+vicious.register(mytemp, vicious.widgets.hwmontemp, "   $1°C", 9, {"coretemp"})
 
 
 -- Vicious: Mem widget
@@ -133,17 +137,23 @@ vicious.register(mynet, vicious.widgets.net, function (widget, args)
                     return down .. "  " .. up .. ""
                 end, 13)
 
---mycpu:buttons (awful.util.table.join (
---        awful.button ({}, 1, function()
---		vicious.force ({ mycpu }) -- force refresh the widget when using the mouse on it
---	end)
---))
+mynet:buttons (awful.util.table.join (
+        awful.button ({}, 1, function()
+		vicious.force ({ mynet }) -- force refresh the widget when using the mouse on it
+	end)
+))
 
 
 -- Vicious: Battery widget
 mybattery = wibox.widget.textbox()
 battwidget_tip = awful.tooltip({ objects = { mybattery }})
 vicious.register(mybattery, vicious.widgets.bat, function (widget, args)
+
+                    if args[3] == "N/A" then
+                       battwidget_tip:set_text("AC Connected")
+                       return " "
+                    end
+
                     if args[1] == "+" then
                        txt = ""
                     else
@@ -359,19 +369,19 @@ awful.screen.connect_for_each_screen(function(s)
         { -- Right widgets
             layout = wibox.layout.fixed.horizontal,
             wibox.widget.systray(),
-            wibox.widget.textbox(' | '),
+            myseparator,
             mycpu,
             mytemp,
-            wibox.widget.textbox(' | '),
+            myseparator,
             mymem,
-            wibox.widget.textbox(' | '),
+            myseparator,
             mynet,
             wlp_widget,
-            wibox.widget.textbox(' | '),
+            myseparator,
             mybattery,
-            wibox.widget.textbox(' | '),
+            myseparator,
             mytextclock,
-            wibox.widget.textbox(' | '),
+            myseparator,
             s.mylayoutbox,
         },
     }
