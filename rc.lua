@@ -7,14 +7,10 @@ pcall(require, "luarocks.loader")
 local gears = require("gears")
 local awful = require("awful")
 require("awful.autofocus")
--- Widget and layout library
 local wibox = require("wibox")
--- Theme handling library
 local beautiful = require("beautiful")
--- Notification library
 local naughty = require("naughty")
--- Vicious library
-vicious = require("vicious")
+local vicious = require("vicious")
 
 -- {{{ Error handling
 -- Check if awesome encountered an error during startup and fell back to
@@ -46,14 +42,13 @@ awful.spawn.once("picom")
 -- }}}
 --
 -- {{{ Variable definitions
--- Themes define colours, icons, font and wallpapers.
 beautiful.init(gears.filesystem.get_configuration_dir() .. "theme.lua")
 
-
--- This is used later as the default terminal and editor to run.
 terminal = os.getenv("TERM") or "alacritty"
 editor = os.getenv("EDITOR") or "nano"
 editor_cmd = terminal .. " -e " .. editor
+wifi_interface = "wlp2s0"
+eth_interface = "eno1"
 
 -- Default modkey.
 modkey = "Mod4"
@@ -128,14 +123,13 @@ mymem:buttons (awful.util.table.join (
 
 -- Vicious: Net widget
 mynet = wibox.widget.textbox()
+wifi_down = "{".. wifi_interface .. " down_kb}"
+wifi_up = "{".. wifi_interface .. " up_kb}"
+eth_down = "{".. eth_interface .. " down_kb}"
+eth_up = "{".. eth_interface .. " up_kb}"
 vicious.register(mynet, vicious.widgets.net, function (widget, args)
-                    --local txt = {}
-                    --for i,v in pairs(args) do
-                    --   txt[#txt + 1] = i .. ": " .. v
-                    --end
-                    --mynet_tip:set_text(table.concat(txt, "\n"))
-                    local down = args["{wlp2s0 down_kb}"] or args["{eno1 down_kb}"]
-                    local up = args["{wlp2s0 up_kb}"] or args["{eno1 up_kb}"]
+                    local down = args[wifi_down] or args[eth_down]
+                    local up = args[wifi_up] or args[eth_up]
                     return down .. "  " .. up .. ""
                 end, 13)
 
@@ -156,14 +150,14 @@ vicious.register(mybattery, vicious.widgets.bat, function (widget, args)
                        txt = ""
                     end
                     
-                    battwidget_tip:set_text( args[1] .. " " ..  args[3] )
-                    if args[2] < 5 then
+                    battwidget_tip:set_text( args[2] .. "% - " ..  args[3] .. " left" )
+                    if args[2] <= 5 then
                        return txt .. " "
-                    elseif args[2] < 25 then
+                    elseif args[2] <= 25 then
                        return txt .. " "
-                    elseif args[2] < 50 then
+                    elseif args[2] <= 50 then
                        return txt .. " "
-                    elseif args[2] < 75 then
+                    elseif args[2] <= 75 then
                        return txt .. " "
                     else
                        return txt .. " "-- txt .. args[2]
@@ -205,28 +199,36 @@ mybattery:buttons (awful.util.table.join (
 --eth_timer:start()
 
 
-function check_wls()
- local wls_file = io.open("/sys/class/net/wlp2s0/operstate", "r")
- local wls_state = wls_file:read()
- wls_file:close()
- return wls_state
+local wlp_name = "/sys/class/net/" .. wifi_interface
+local f=io.open(wlp_name,"r")
+if f~=nil then 
+
+   io.close(f)
+
+   function check_wlp()
+    local wlp_file = io.open(wlp_name .. "/operstate", "r")
+    local wlp_state = wlp_file:read()
+    wlp_file:close()
+    return wlp_state
+   end
+
+   wlp_widget = wibox.widget.textbox()
+
+   function wlp_status()
+       if (check_wlp() == "up") then
+           wlp_widget:set_markup("  ")
+       else
+           wlp_widget:set_markup()
+       end
+   end
+   wlp_status()
+
+   wlp_timer = timer({timeout=113})
+   wlp_timer:connect_signal("timeout",wlp_status)
+   wlp_timer:start()
+else
+   wlp_widget = nil
 end
-
-wls_widget = wibox.widget.textbox()
-
-function wls_status()
-    if (check_wls() == "up") then
-        wls_widget:set_markup("  ")
-    else
-        wls_widget:set_markup()
-    end
-end
-wls_status()
-
-wls_timer = timer({timeout=113})
-wls_timer:connect_signal("timeout",wls_status)
-wls_timer:start()
-
 
 -- Create a wibox for each screen and add it
 local taglist_buttons = gears.table.join(
@@ -246,6 +248,7 @@ local taglist_buttons = gears.table.join(
                     awful.button({ }, 5, function(t) awful.tag.viewprev(t.screen) end)
                 )
 
+                
 local tasklist_buttons = gears.table.join(
                      awful.button({ }, 1, function (c)
                                               if c == client.focus then
@@ -363,12 +366,11 @@ awful.screen.connect_for_each_screen(function(s)
             mymem,
             wibox.widget.textbox(' | '),
             mynet,
-            wls_widget,
+            wlp_widget,
             wibox.widget.textbox(' | '),
             mybattery,
             wibox.widget.textbox(' | '),
             mytextclock,
-            wibox.widget.textbox(' '),
             wibox.widget.textbox(' | '),
             s.mylayoutbox,
         },
