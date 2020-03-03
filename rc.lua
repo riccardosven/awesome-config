@@ -10,7 +10,7 @@ require("awful.autofocus")
 local wibox = require("wibox")
 local beautiful = require("beautiful")
 local naughty = require("naughty")
-local vicious = require("vicious")
+local mywidgets = require("mywidgets")
 
 -- {{{ Error handling
 -- Check if awesome encountered an error during startup and fell back to
@@ -47,9 +47,6 @@ beautiful.init(gears.filesystem.get_configuration_dir() .. "theme.lua")
 terminal = os.getenv("TERM") or "alacritty"
 editor = os.getenv("EDITOR") or "nano"
 editor_cmd = terminal .. " -e " .. editor
-wifi_interface = "wlp3s0"
-eth_interface = "eno1"
-battery_name = "BAT0"
 
 -- Default modkey.
 modkey = "Mod4"
@@ -59,186 +56,19 @@ awful.layout.layouts = {
     awful.layout.suit.tile,
     awful.layout.suit.tile.left,
     awful.layout.suit.floating
-    -- awful.layout.suit.tile.bottom,
-    -- awful.layout.suit.tile.top,
-    -- awful.layout.suit.fair,
-    -- awful.layout.suit.fair.horizontal,
-    -- awful.layout.suit.spiral,
-    -- awful.layout.suit.spiral.dwindle,
-    -- awful.layout.suit.max,
-    -- awful.layout.suit.max.fullscreen,
-    -- awful.layout.suit.magnifier,
-    -- awful.layout.suit.corner.nw,
-    -- awful.layout.suit.corner.ne,
-    -- awful.layout.suit.corner.sw,
-    -- awful.layout.suit.corner.se,
 }
 -- }}}
 -- {{{ Wibar
--- Widget separator
-myseparator = wibox.widget.textbox(" | ")
 
--- Create a textclock widget
-mytextclock = wibox.widget.textclock()
+-- Widgets
+myseparator = mywidgets.separator
+mycpu = mywidgets.cpu
+mytemp = mywidgets.temp
+mymem = mywidgets.mem
+mynet = mywidgets.net
+mybattery = mywidgets.battery
+mytextclock = mywidgets.textclock
 
--- Vicious: CPU widget
-mycpu = wibox.widget.textbox()
-mycpu_tip = awful.tooltip({ objects = { mycpu }})
-vicious.register(mycpu, vicious.widgets.cpu, function (widget, args)
-                    template = template or 'Core %d: %d %%'
-                    local txt = {}
-                    for i,v in pairs(args) do
-                       if i > 1 then
-                          txt[#txt + 1] = template:format(i,v)
-                       end
-                    end
-                    mycpu_tip:set_text(table.concat(txt, "\n"))
-                    return "" .. args[1] .. "%"
-                end, 7)
-
-mycpu:buttons (awful.util.table.join (
-        awful.button ({}, 1, function()
-		vicious.force ({ mycpu })
-	end)
-))
-
--- Vicious: Temp widget
-mytemp = wibox.widget.textbox()
-vicious.register(mytemp, vicious.widgets.hwmontemp, "   $1°C", 9, {"coretemp"})
-
-
--- Vicious: Mem widget
-mymem = wibox.widget.textbox()
-mymem_tip = awful.tooltip({ objects = { mymem }})
-vicious.register(mymem, vicious.widgets.mem, function (widget, args)
-                    local txt = {}
-                    txt[1] = "Mem: " .. args[2] .. "/" .. args[3] .. " MiB (" .. args[1] .. "%)"
-                    txt[2] = "Swap: " .. args[6] .. "/" .. args[7] .. " MiB (" .. args[5] .. "%)"
-                    mymem_tip:set_text(table.concat(txt, "\n"))
-                    return " "  .. args[1] .. "%"
-                end, 11)
-
-mymem:buttons (awful.util.table.join (
-        awful.button ({}, 1, function()
-		vicious.force ({ mymem }) -- force refresh the widget when using the mouse on it
-	end)
-))
-
-
--- Vicious: Net widget
-mynet = wibox.widget.textbox()
-wifi_down = "{".. wifi_interface .. " down_kb}"
-wifi_up = "{".. wifi_interface .. " up_kb}"
-eth_down = "{".. eth_interface .. " down_kb}"
-eth_up = "{".. eth_interface .. " up_kb}"
-vicious.register(mynet, vicious.widgets.net, function (widget, args)
-                    local down = args[wifi_down] or args[eth_down]
-                    local up = args[wifi_up] or args[eth_up]
-                    return down .. "  " .. up .. ""
-                end, 13)
-
-mynet:buttons (awful.util.table.join (
-        awful.button ({}, 1, function()
-		vicious.force ({ mynet }) -- force refresh the widget when using the mouse on it
-	end)
-))
-
-
--- Vicious: Battery widget
-mybattery = wibox.widget.textbox()
-battwidget_tip = awful.tooltip({ objects = { mybattery }})
-vicious.register(mybattery, vicious.widgets.bat, function (widget, args)
-
-                    if args[3] == "N/A" then
-                       battwidget_tip:set_text("AC Connected")
-                       return " "
-                    end
-
-                    if args[1] == "+" then
-                       txt = ""
-                    else
-                       txt = ""
-                    end
-                    
-                    battwidget_tip:set_text( args[2] .. "% - " ..  args[3] .. " left" )
-                    if args[2] <= 5 then
-                       return txt .. " "
-                    elseif args[2] <= 25 then
-                       return txt .. " "
-                    elseif args[2] <= 50 then
-                       return txt .. " "
-                    elseif args[2] <= 75 then
-                       return txt .. " "
-                    else
-                       return txt .. " "-- txt .. args[2]
-                    end
- 
-                end, 39, 'BAT0')
-
-mybattery:buttons (awful.util.table.join (
-        awful.button ({}, 1, function()
-		vicious.force ({ mybattery }) -- force refresh the widget when using the mouse on it
-	end)
-))
-
----- Ethernet connection widget
---local widget_separator= " | "
---
---eth_icon = widget_separator.." Eth: "
---
---function check_eth()
--- local eth_file = io.open("/sys/class/net/eno1/operstate", "r")
--- local eth_state = eth_file:read()
--- eth_file:close()
--- return eth_state
---end
---
---eth_widget = wibox.widget.textbox()
---
---function eth_status()
---    if (check_eth() == "up") then
---        eth_widget:set_markup(eth_icon.."on ")
---    else
---        eth_widget:set_markup(eth_icon.."off ")
---    end
---end
---eth_status()
---
---eth_timer = timer({timeout=60})
---eth_timer:connect_signal("timeout",eth_status)
---eth_timer:start()
-
-
-local wlp_name = "/sys/class/net/" .. wifi_interface
-local f=io.open(wlp_name,"r")
-if f~=nil then 
-
-   io.close(f)
-
-   function check_wlp()
-    local wlp_file = io.open(wlp_name .. "/operstate", "r")
-    local wlp_state = wlp_file:read()
-    wlp_file:close()
-    return wlp_state
-   end
-
-   wlp_widget = wibox.widget.textbox()
-
-   function wlp_status()
-       if (check_wlp() == "up") then
-           wlp_widget:set_markup("  ")
-       else
-           wlp_widget:set_markup()
-       end
-   end
-   wlp_status()
-
-   wlp_timer = timer({timeout=113})
-   wlp_timer:connect_signal("timeout",wlp_status)
-   wlp_timer:start()
-else
-   wlp_widget = nil
-end
 
 -- Create a wibox for each screen and add it
 local taglist_buttons = gears.table.join(
@@ -376,7 +206,6 @@ awful.screen.connect_for_each_screen(function(s)
             mymem,
             myseparator,
             mynet,
-            wlp_widget,
             myseparator,
             mybattery,
             myseparator,
@@ -431,10 +260,8 @@ globalkeys = gears.table.join(
    awful.key({ modkey, "Shift"   }, "l", function () awful.client.swap.bydirection("right")    end),
    awful.key({ modkey, "Shift"   }, "j", function () awful.client.swap.bydirection("down")    end),
    awful.key({ modkey, "Shift"   }, "k", function () awful.client.swap.bydirection("up")    end),
-    awful.key({ modkey, "Control" }, "j", function () awful.screen.focus_relative( 1) end,
+    awful.key({ modkey,          }, "s", function () awful.screen.focus_relative( 1) end,
               {description = "focus the next screen", group = "screen"}),
-    awful.key({ modkey, "Control" }, "k", function () awful.screen.focus_relative(-1) end,
-              {description = "focus the previous screen", group = "screen"}),
     awful.key({ modkey,           }, "u", awful.client.urgent.jumpto,
               {description = "jump to urgent client", group = "client"}),
     awful.key({ modkey,           }, "Tab",
@@ -513,7 +340,7 @@ clientkeys = gears.table.join(
               {description = "toggle floating", group = "client"}),
     awful.key({ modkey, "Control" }, "Return", function (c) c:swap(awful.client.getmaster()) end,
               {description = "move to master", group = "client"}),
-    awful.key({ modkey,           }, "o",      function (c) c:move_to_screen()               end,
+    awful.key({ modkey, "Shift"   }, "s",      function (c) c:move_to_screen()               end,
               {description = "move to screen", group = "client"}),
     awful.key({ modkey,           }, "t",      function (c) c.ontop = not c.ontop            end,
               {description = "toggle keep on top", group = "client"}),
